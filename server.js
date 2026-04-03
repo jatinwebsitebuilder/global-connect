@@ -3,7 +3,7 @@ const http = require('http');
 const { Server } = require('socket.io');
 
 const app = express();
-app.use(express.static(_dirname))//This is the new line line!
+app.use(express.static(__dirname))//This is the new line line!
 const server = http.createServer(app);
 const io = new Server(server, { cors: { origin: '*' } });
 
