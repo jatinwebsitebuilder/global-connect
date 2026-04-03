@@ -1,203 +1,30 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
-    <title>Global Connect Pro</title>
-    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
-    <link rel="stylesheet" href="css/style.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Global Connect - Random Video Chat</title>
+    <link rel="stylesheet" href="style.css">
 </head>
-
 <body>
 
-    <div id="lobby">
-        <div class="coin-box">💰 Balance: <span id="coinCount">50</span> Coins</div>
-        <div class="card">
-            <h2>GLOBAL CONNECT <span id="pro-tag" class="pro-badge"
-                    style="display:none; color:gold; border:1px solid gold; padding:2px 5px; font-size:12px; border-radius: 5px;">PRO</span>
-            </h2>
+    <header>Global Connect 🌍</header>
 
-            <select id="myIdentity">
-                <option value="male">I am Male</option>
-                <option value="female">I am Female</option>
-                <option value="couple">I am Couple</option>
-            </select>
-
-            <select id="myInterest">
-                <option value="female">Want Female</option>
-                <option value="male">Want Male</option>
-                <option value="trans">Want Trans</option>
-            </select>
-
-            <label style="display:block; margin: 10px 0;"><input type="checkbox" id="useCam" checked> Enable
-                Camera</label>
-
-            <button class="btn-main" onclick="startMatching()">START MATCHING</button>
-            <button class="btn-wa" onclick="shareToWhatsApp()">📲 Invite Friends on WhatsApp</button>
-            <button class="btn-pro" id="proBtn" onclick="goPremium()">✨ UPGRADE TO PRO (FREE)</button>
+    <div class="video-container">
+        <div class="video-box">
+            <video id="localVideo" autoplay muted playsinline></video>
+        </div>
+        <div class="video-box">
+            <video id="remoteVideo" autoplay playsinline></video>
         </div>
     </div>
 
-    <div id="chat-screen">
-        <div class="video-area">
-            <div id="status" style="color:var(--primary); font-weight:bold; font-size:20px;">Finding a global match...
-            </div>
-            <div class="video-grid">
-                <video id="localVideo" autoplay muted></video>
-                <video id="remoteVideo" autoplay></video>
-            </div>
-            <div style="display:flex; gap:10px; justify-content:center; margin-top:15px;">
-                <button class="btn-sec" style="width:150px" onclick="switchCamera()">🔄 SWITCH CAM</button>
-                <button class="btn-main" style="width:150px" onclick="location.reload()">➡️ NEXT</button>
-            </div>
-        </div>
-        <div class="chat-sidebar">
-            <div id="messages"></div>
-            <div style="padding:10px; display:flex; gap:5px;">
-                <input type="text" id="chatInput" placeholder="Type here..."
-                    style="flex:1; padding:10px; border-radius:5px; background:#222; color:white; border:none;">
-                <button onclick="sendMsg()"
-                    style="width:60px; background:var(--primary); color:black; font-weight:bold; border:none; border-radius:5px;">SEND</button>
-            </div>
-        </div>
+    <div class="controls">
+        <button id="nextBtn">Start / Next Match</button>
     </div>
 
-    <div id="wheel-overlay">
-        <h2 style="color:gold">🎡 Daily Free Spin!</h2>
-        <div id="wheel" class="wheel"></div>
-        <button class="btn-main" id="spinBtn" style="width:200px; margin-top:20px;" onclick="spin()">SPIN!</button>
-    </div>
-
-    <script>
-        // 1. SETUP VARIABLES
-        const socket = io();
-        let myCoins = 50;
-        let useFrontCamera = true;
-        let isPremium = false;
-
-        // 2. DAILY SPIN LOGIC
-        window.onload = () => {
-            if (localStorage.getItem('lastSpin') !== new Date().toDateString()) {
-                document.getElementById('wheel-overlay').style.display = 'flex';
-            }
-        };
-
-        function spin() {
-            const wheel = document.getElementById('wheel');
-            const deg = 1800 + Math.random() * 360; // Spin 5 times + random extra
-            wheel.style.transform = `rotate(${deg}deg)`;
-
-            setTimeout(() => {
-                myCoins += 20; // Give them 20 coins
-                updateUI();
-                localStorage.setItem('lastSpin', new Date().toDateString());
-                document.getElementById('wheel-overlay').style.display = 'none';
-            }, 4000); // wait 4 seconds for spin to finish
-        }
-
-        // 3. UI BUTTONS (PREMIUM & WHATSAPP)
-        function updateUI() {
-            document.getElementById('coinCount').innerText = myCoins;
-        }
-
-        function goPremium() {
-            isPremium = true;
-            myCoins += 1000;
-            updateUI();
-            document.getElementById('pro-tag').style.display = 'inline';
-            document.getElementById('proBtn').style.display = 'none';
-            alert("Congrats! You are now a PRO Member. All matches are FREE!");
-        }
-
-        function shareToWhatsApp() {
-            const text = encodeURIComponent("Hey! I'm chatting with people all over the world on GlobalConnect. Join me! 🌎✨");
-            window.open("https://wa.me/?text=" + text, '_blank');
-        }
-
-        // 4. MATCHMAKING LOGIC (This is what was missing!)
-        async function startMatching() {
-            // Check coins if they are not Pro
-            if (!isPremium) {
-                if (myCoins < 10) return alert("Not enough coins! Wait for the Daily Spin tomorrow.");
-                myCoins -= 10;
-                updateUI();
-            }
-
-            // Hide lobby, show chat
-            document.getElementById('lobby').style.display = 'none';
-            document.getElementById('chat-screen').style.display = 'flex';
-
-            // Try to turn on the camera
-            if (document.getElementById('useCam').checked) {
-                try {
-                    await initCam();
-                } catch (e) {
-                    console.log("Camera access blocked by browser.");
-                }
-            }
-
-            // Tell the server to find a partner
-            socket.emit('find-match', {
-                identity: document.getElementById('myIdentity').value,
-                interest: document.getElementById('myInterest').value,
-                isPremium: isPremium
-            });
-        }
-
-        // 5. CAMERA CONTROLS
-        async function initCam() {
-            const stream = await navigator.mediaDevices.getUserMedia({
-                video: { facingMode: useFrontCamera ? "user" : "environment" }, audio: true
-            });
-            document.getElementById('localVideo').srcObject = stream;
-        }
-
-        function switchCamera() {
-            useFrontCamera = !useFrontCamera;
-            initCam();
-        }
-
-        // 6. TEXT CHAT & HINGLISH TRANSLATION
-        function sendMsg() {
-            const txt = document.getElementById('chatInput').value;
-            if (!txt) return;
-            addMsg(txt, 'me', false);
-            socket.emit('send-chat', txt); // Send to partner
-            document.getElementById('chatInput').value = '';
-        }
-
-        socket.on('receive-chat', async (msg) => {
-            addMsg(msg, 'them', false); // Show original message
-
-            try {
-                // Fetch translation
-                const res = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(msg)}&langpair=autodetect|hi`);
-                const data = await res.json();
-                addMsg("🇮🇳: " + data.responseData.translatedText, 'them', true); // Show Hindi/Hinglish
-            } catch (e) {
-                console.log("Translation failed");
-            }
-        });
-
-        function addMsg(text, sender, isTranslation) {
-            const div = document.createElement('div');
-            div.className = `msg ${sender}`;
-
-            // If it's the translation, make it look smaller and italic
-            if (isTranslation) {
-                div.style = "font-size:12px; font-style:italic; opacity:0.8; margin-top:-5px; background:#222; color:var(--primary);";
-            }
-
-            div.innerText = text;
-            document.getElementById('messages').appendChild(div);
-            document.getElementById('messages').scrollTop = 9999; // Scroll to bottom
-        }
-
-        // When the server finds a match
-        socket.on('matched', (info) => {
-            document.getElementById('status').innerText = "Matched with a " + info.partnerType.toUpperCase() + "!";
-        });
-    </script>
+    <!-- This grabs Socket.io from your server -->
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="script.js"></script>
 </body>
-
 </html>
